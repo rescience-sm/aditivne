@@ -1,0 +1,898 @@
+<!DOCTYPE html>
+<html lang="hr" class="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Aditivne tehnologije u dentalnoj tehnici — Markmap</title>
+
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <!-- D3 & Markmap Libraries -->
+  <script src="https://cdn.jsdelivr.net/npm/d3@7.8.5/dist/d3.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/markmap-view@0.17.0/dist/browser/index.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/markmap-lib@0.17.0/dist/browser/index.iife.js"></script>
+
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      overflow: hidden;
+      user-select: none;
+    }
+
+    svg.markmap {
+      width: 100%;
+      height: 100%;
+    }
+
+    .markmap-dark {
+      background-color: #0f172a;
+      color: #f8fafc;
+    }
+
+    .markmap-light {
+      background-color: #f8fafc;
+      color: #0f172a;
+    }
+
+    .markmap-node {
+      cursor: pointer;
+    }
+
+    foreignObject {
+      overflow: visible !important;
+    }
+
+    .markmap-foreign {
+      display: inline-block;
+      text-align: left !important;
+      font-size: 14px;
+      line-height: 1.45;
+      padding: 2px 18px 2px 4px !important;
+      white-space: nowrap;
+      overflow: visible !important;
+    }
+
+    .markmap-dark .markmap-foreign {
+      color: #f1f5f9;
+    }
+
+    .markmap-light .markmap-foreign {
+      color: #1e293b;
+    }
+
+    .markmap-foreign code {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.88em;
+      padding: 1px 5px;
+      border-radius: 4px;
+      white-space: nowrap;
+    }
+
+    .markmap-dark .markmap-foreign code {
+      background-color: rgba(30, 41, 59, 0.95);
+      color: #38bdf8;
+      border: 1px solid rgba(56, 189, 248, 0.3);
+    }
+
+    .markmap-light .markmap-foreign code {
+      background-color: #e2e8f0;
+      color: #0369a1;
+      border: 1px solid #cbd5e1;
+    }
+
+    .markmap-foreign strong {
+      font-weight: 600;
+    }
+
+    /* Search Highlight & Progress Tracker Badges */
+    .search-match {
+      background-color: rgba(250, 204, 21, 0.28) !important;
+      outline: 2px solid #eab308 !important;
+      border-radius: 6px;
+    }
+
+    .learned-node {
+      opacity: 0.72;
+      text-decoration: underline;
+      text-decoration-color: rgba(16, 185, 129, 0.5);
+      text-underline-offset: 3px;
+    }
+
+    .check-btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 13px;
+      height: 13px;
+      margin-right: 6px;
+      border-radius: 3px;
+      border: 1.25px solid rgba(148, 163, 184, 0.55);
+      background-color: rgba(15, 23, 42, 0.45);
+      color: transparent;
+      font-size: 9px;
+      line-height: 1;
+      font-weight: 700;
+      cursor: pointer;
+      vertical-align: -1px;
+      transition: all 0.15s ease;
+      user-select: none;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    .markmap-light .check-btn {
+      background-color: rgba(255, 255, 255, 0.85);
+      border-color: #94a3b8;
+    }
+
+    .check-btn:hover {
+      border-color: #10b981;
+      transform: scale(1.1);
+    }
+
+    .check-btn.is-checked {
+      background-color: #10b981;
+      border-color: #059669;
+      color: #ffffff;
+    }
+  </style>
+</head>
+<body class="markmap-dark h-screen w-screen flex flex-col transition-colors duration-200" id="app-body">
+
+  <!-- Password Login Overlay (PIN: 1111) -->
+  <div id="login-modal" class="fixed inset-0 z-50 bg-slate-950/95 backdrop-blur-xl flex items-center justify-center p-4 transition-opacity duration-300">
+    <div class="w-full max-w-sm bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl p-6 text-center">
+      <div class="w-12 h-12 mx-auto mb-4 rounded-xl bg-gradient-to-br from-sky-500 to-blue-700 flex items-center justify-center shadow-lg shadow-sky-500/20">
+        <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+        </svg>
+      </div>
+      <h2 class="text-lg font-bold text-white mb-1">Zaštićeni pristup</h2>
+      <p class="text-xs text-slate-400 mb-5">Aditivne tehnologije u dentalnoj tehnici</p>
+      
+      <form onsubmit="handleLogin(event)" class="space-y-3">
+        <div>
+          <input
+            type="password"
+            id="password-input"
+            inputmode="numeric"
+            autocomplete="off"
+            oninput="checkAutoLogin(this)"
+            placeholder="Unesite zaporku..."
+            autofocus
+            class="w-full px-4 py-2.5 rounded-xl bg-slate-950 border border-slate-700 text-center text-white tracking-widest font-mono text-base focus:outline-none focus:border-sky-500 transition select-text"
+          />
+          <p id="login-error" class="hidden text-xs text-rose-400 mt-2 font-medium">Netočna zaporka. Pokušajte ponovno.</p>
+        </div>
+        <button
+          type="submit"
+          class="w-full py-2.5 rounded-xl bg-sky-600 hover:bg-sky-500 text-white font-semibold text-sm shadow-lg shadow-sky-600/25 transition"
+        >
+          Otključaj mentalnu mapu
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <!-- Top Navigation & Control Bar (Responsive for Mobile & Desktop) -->
+  <header class="min-h-[3.5rem] py-2 border-b border-slate-700/70 bg-slate-900/90 backdrop-blur-md px-3 sm:px-4 flex flex-wrap items-center justify-between gap-2 z-20 shrink-0">
+    <div class="flex items-center gap-2.5">
+      <div class="w-8 h-8 rounded-lg bg-gradient-to-br from-sky-500 to-blue-700 flex items-center justify-center shadow-md shadow-sky-500/20 shrink-0">
+        <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4" />
+        </svg>
+      </div>
+      <div>
+        <div class="flex items-center gap-2">
+          <h1 class="text-xs sm:text-sm font-bold tracking-tight text-white leading-tight">Aditivne tehnologije u dentalnoj tehnici</h1>
+          <span class="hidden sm:inline-block text-[10px] font-mono uppercase px-2 py-0.5 rounded-full bg-sky-500/20 text-sky-300 border border-sky-500/30">markmap.js.org</span>
+        </div>
+        <p class="text-[10px] sm:text-[11px] text-slate-400">Interaktivna mentalna mapa za lakše učenje</p>
+      </div>
+    </div>
+
+    <!-- Action Controls -->
+    <div class="flex items-center flex-wrap gap-1.5 sm:gap-2 w-full sm:w-auto justify-between sm:justify-end">
+
+      <!-- 1. Search & Filter Bar -->
+      <div class="relative flex items-center">
+        <svg class="w-3.5 h-3.5 text-slate-400 absolute left-2.5 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+        </svg>
+        <input
+          type="text"
+          id="search-input"
+          oninput="handleSearch(this.value)"
+          placeholder="Traži pojam (npr. SLA, IPA)..."
+          class="w-36 sm:w-44 pl-8 pr-6 py-1 rounded-lg bg-slate-800/90 border border-slate-700 text-xs text-white placeholder-slate-400 focus:outline-none focus:border-sky-500 transition select-text"
+        />
+        <button id="clear-search-btn" onclick="clearSearch()" class="hidden absolute right-1.5 text-slate-400 hover:text-white text-xs px-1" title="Očisti pretragu">✕</button>
+      </div>
+
+      <!-- 4. Focus Mode (Isolate Chapter) -->
+      <select
+        id="chapter-focus"
+        onchange="handleChapterFocus(this.value)"
+        class="px-2 py-1 rounded-lg bg-slate-800/90 border border-slate-700 text-xs text-slate-200 focus:outline-none focus:border-sky-500 transition cursor-pointer max-w-[140px] sm:max-w-[175px]"
+        title="Fokus na odabrano poglavlje"
+      >
+        <option value="all">📚 Sva poglavlja (1–7)</option>
+        <option value="0">1. Digitalni tijek rada</option>
+        <option value="1">2. ISO/ASTM 52900 sustavi</option>
+        <option value="2">3. Slicing i potpore</option>
+        <option value="3">4. Dentalni materijali</option>
+        <option value="4">5. Kliničke primjene</option>
+        <option value="5">6. Post-procesiranje i QC</option>
+        <option value="6">7. Trendovi i IMRAD/APA 7</option>
+      </select>
+
+      <!-- 3. Progress Tracker Badge -->
+      <div class="flex items-center gap-1.5 bg-slate-800/90 border border-slate-700 rounded-lg px-2.5 py-1 text-xs" title="Kliknite ili dodirnite kvadratić uz bilo koje poglavlje ili potpoglavlje na mapi kako biste ga označili naučenim">
+        <span class="text-emerald-400 font-semibold">✅</span>
+        <span class="hidden xl:inline text-slate-400">Naučeno:</span>
+        <span id="progress-text" class="font-mono font-bold text-emerald-400">0%</span>
+        <button onclick="resetProgress()" class="text-[10px] text-slate-400 hover:text-rose-400 ml-0.5" title="Poništi napredak">↺</button>
+      </div>
+
+      <!-- Depth Controls (Visible on Mobile & Desktop) -->
+      <div class="flex items-center bg-slate-800/90 border border-slate-700 rounded-lg p-0.5 text-xs">
+        <span class="hidden lg:inline px-2 py-1 text-slate-400 font-medium">Razina:</span>
+        <button onclick="setExpandLevel(1, event)" class="px-2 sm:px-2.5 py-1 rounded-md bg-sky-600 text-white font-medium transition" id="btn-lvl-1" title="Samo glavna poglavlja">1</button>
+        <button onclick="setExpandLevel(2, event)" class="px-2 sm:px-2.5 py-1 rounded-md hover:bg-slate-700 text-slate-200 transition" id="btn-lvl-2" title="Poglavlja i potpoglavlja">2</button>
+        <button onclick="setExpandLevel(3, event)" class="px-2 sm:px-2.5 py-1 rounded-md hover:bg-slate-700 text-slate-200 transition" id="btn-lvl-3" title="Optimalna razina za učenje">3</button>
+        <button onclick="setExpandLevel(99, event)" class="px-2 sm:px-2.5 py-1 rounded-md hover:bg-slate-700 text-slate-200 transition" id="btn-lvl-99" title="Otvori sve čvorove">Sve</button>
+      </div>
+
+      <div class="flex items-center gap-1.5">
+        <!-- Fit to Screen -->
+        <button onclick="fitMap()" class="px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-xs font-medium text-slate-200 flex items-center gap-1 transition" title="Centriraj mapu (Fit)">
+          <svg class="w-4 h-4 text-sky-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" />
+          </svg>
+          <span class="hidden md:inline">Centriraj</span>
+        </button>
+
+        <!-- Toggle Markdown Editor (Removed automatically on HTML Export) -->
+        <button id="editor-toggle-btn" onclick="toggleEditor()" class="px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-xs font-medium text-slate-200 flex items-center gap-1 transition" title="Prikaži / sakrij Markdown editor">
+          <svg class="w-4 h-4 text-purple-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+          </svg>
+          <span class="hidden md:inline">Editor</span>
+        </button>
+
+        <!-- Save Mindmap (HTML & SVG) -->
+        <button onclick="saveHtmlMindmap()" class="px-2.5 sm:px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-xs font-medium text-white flex items-center gap-1.5 transition shadow-sm" title="Spremi samostalnu mapu bez editora (Aditivne.html)">
+          <svg class="w-4 h-4 text-white shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+          </svg>
+          <span>HTML</span>
+        </button>
+
+        <button onclick="saveSvgMindmap()" class="px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-xs font-medium text-slate-200 flex items-center gap-1 transition" title="Spremi cijelu vektorsku sliku (Aditivne.svg)">
+          <svg class="w-4 h-4 text-emerald-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+          </svg>
+          <span>SVG</span>
+        </button>
+
+        <!-- Theme Switcher -->
+        <button onclick="toggleTheme()" id="btn-theme" class="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 transition" title="Promijeni temu (Tamna / Svijetla)">
+          <svg id="icon-sun" class="w-4 h-4 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
+          </svg>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Workspace (Mindmap Viewer + Live Markdown Editor Drawer) -->
+  <div class="flex-1 flex relative overflow-hidden">
+    <!-- Left Collapsible Markdown Editor (Excluded on HTML Export) -->
+    <aside id="editor-panel" class="hidden w-full sm:w-96 md:w-[440px] h-full border-r border-slate-700/80 bg-slate-900/95 flex-col z-10 shrink-0">
+      <div class="px-3.5 py-2 border-b border-slate-800 flex items-center justify-between text-xs">
+        <span class="font-semibold text-slate-200 flex items-center gap-1.5">
+          <span class="w-2 h-2 rounded-full bg-purple-400"></span>
+          Markmap Markdown Editor
+        </span>
+        <button onclick="toggleEditor()" class="text-slate-400 hover:text-white px-1.5 py-0.5 rounded">Zatvori ✕</button>
+      </div>
+      <textarea
+        id="markdown-editor"
+        oninput="handleEditorInput(this.value)"
+        spellcheck="false"
+        class="flex-1 w-full p-3.5 bg-slate-950 text-slate-200 font-mono text-xs leading-relaxed focus:outline-none resize-none select-text"
+      ></textarea>
+      <div class="px-3.5 py-2 border-t border-slate-800 bg-slate-900 text-[11px] text-slate-400 flex justify-between items-center">
+        <span>Promjene se prikazuju uživo</span>
+        <span class="text-emerald-400">Pri eksportu .html je samo preview</span>
+      </div>
+    </aside>
+
+    <main class="flex-1 h-full relative" id="canvas-container">
+      <svg id="markmap-svg" class="markmap"></svg>
+
+      <!-- Floating Legend & Help Badge -->
+      <div class="hidden sm:flex absolute bottom-4 left-4 bg-slate-900/85 backdrop-blur border border-slate-700/80 rounded-xl px-3.5 py-2.5 text-xs text-slate-300 shadow-lg pointer-events-none flex-col gap-1">
+        <div class="font-semibold text-white flex items-center gap-1.5">
+          <span class="w-2 h-2 rounded-full bg-sky-400 animate-pulse"></span>
+          <span>Upute za korištenje:</span>
+        </div>
+        <div class="text-[11px] text-slate-400">
+          • <b>Klik na kružić čvora:</b> Otvori / zatvori granu<br>
+          • <b>Klik / dodir na kvadratić (✓):</b> Označi poglavlje naučenim<br>
+          • <b>Kotačić miša / Povlačenje:</b> Zumiranje i pomicanje
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <!-- Complete, Verified Markmap Markdown Data -->
+  <script id="markmap-source" type="text/markdown">---
+title: Aditivne tehnologije u dentalnoj tehnici
+markmap:
+  colorFreezeLevel: 2
+  initialExpandLevel: 1
+---
+
+# <div style="text-align:left; line-height:1.35;">🦷 Aditivne tehnologije<br>u dentalnoj tehnici</div>
+
+## 1. Digitalni tijek rada (*digital workflow*)
+### Osnovni koncept
+- Izrada 3D objekata **sloj po sloj** (*layer-by-layer*) izravno iz 3D CAD modela
+- **Komplementarnost s glodanjem (suptraktivno):** ušteda do `80%` materijala te izrada unutarnjih kanala i potkopanih područja bez ograničenja osi glodala
+### 6 koraka digitalnog protokola
+- **1. Akvizicija:** intraoralni skener (IOS), CBCT ili laboratorijski skener *(eliminira kontrakciju silikona i ekspanziju gipsa)*
+- **2. Dentalni CAD:** modeliranje protetskog nadomjestka (*Exocad*, *3Shape*)
+- **3. Mrežni izvoz:** pretvorba u `STL`, `PLY` ili `OBJ` format i verifikacija mreže
+- **4. CAM *slicing*:** orijentacija modela (30° – 45°), postavljanje potpora i odabir visine Z-sloja
+- **5. 3D ispis:** fotopolimerizacija u spremniku (`SLA`/`DLP`/`LCD`) ili lasersko taljenje praha (`SLM`)
+- **6. Post-procesiranje:** pranje u `IPA` alkoholu → sekundarna UV + N₂ polimerizacija → završna obrada i glaziranje
+### 3D formati datoteka i popravak mreže (*mesh fix*)
+- **STL (*Standard Tessellation Language*):** aproksimira površinu mrežom trokuta (koordinate vrhova i vektor normale); **ne sadrži boju ni teksturu**
+- **PLY i OBJ formati:** sadrže informaciju o boji i teksturi gingive i zuba → ključno za točno određivanje granice preparacije (`margin line`)
+- **Uvjet za ispis (*watertight mesh*):**
+  - 3D mreža mora biti potpuno zatvoren ("vodonepropustan") volumen bez pukotina (*non-manifold geometry*)
+  - Popravak otvora u mreži (*holes*), preokrenutih normala (*flipped normals*) i samopresijecajućih trokuta (*self-intersecting faces*)
+
+## 2. Sustavi prema normi ISO/ASTM 52900
+### Fotopolimerizacija u spremniku (*Vat Photopolymerization* — VPP)
+- **Princip rada:** selektivna UV polimerizacija tekuće smole u spremniku (valna duljina λ = 385 – 405 nm)
+- **SLA (stereolitografija — laser):**
+  - UV laser preko sustava galvanometarskih zrcala iscrtava presjek modela vektor po vektor
+  - Inverzni (*bottom-up*) pristup; visoka izotropna točnost (25 – 50 µm)
+  - Vrijeme ispisa izravno ovisi o ukupnom broju modela na radnoj platformi
+- **DLP (*Digital Light Processing* — projektor):**
+  - Projektor s DMD čipom projicira **cijeli sloj odjednom** → iznimna brzina ispisa neovisno o broju krunica na platformi
+- **LCD / MSLA (*Masked SLA*):**
+  - UV LED matrica + propusna LCD maska piksela; veliki radni volumen i niža cijena uređaja
+- **Voksel (*voxel*):** trodimenzionalni ekvivalent piksela (X × Y × Z); XY rezolucija kod DLP/LCD sustava određena je veličinom piksela (35 – 50 µm)
+### Spajanje praha u posteljici (*Powder Bed Fusion* — PBF)
+- **SLS (*Selective Laser Sintering*):** toplinsko srašćivanje polimernog praha (`PA12`) **bez potrebe za potpornim strukturama**
+- **SLM / LPBF (*Laser Powder Bed Fusion*):**
+  - Potpuno taljenje metalnog praha (`Co-Cr`, `Ti6Al4V`, veličina čestica 15 – 45 µm) vlaknastim (*fiber*) laserom
+  - Odvija se u zaštitnoj inertnoj atmosferi argona (`Ar`) ili dušika (`N₂`)
+  - **Zahtijeva čvrste metalne potpore** za odvođenje topline i sprječavanje toplinskog uvijanja konstrukcije
+### Taložno očvršćivanje filamenta (*Material Extrusion* — FDM / FFF)
+- Ekstruzija termoplastičnog filamenta (promjera ⌀ 1,75 mm) kroz zagrijanu mlaznicu (promjera ⌀ 0,2 – 0,4 mm)
+- Rezolucija sloja iznosi 50 – 200 µm *(vidljive linije slojeva na površini)*
+- **Primjena:** studijski i edukativni modeli (`PLA`, `PETG`), individualne žlice, te visokotemperaturni ispis medicinskog `PEEK`-a (pri temperaturi mlaznice ≈ 400 °C)
+### Ispuštanje mikrokapljica (*Material Jetting* — PolyJet)
+- Ispuštanje mikrokapljica fotopolimera kroz mlaznice uz trenutnu UV polimerizaciju *(za višebojne anatomske modele i estetske prototipove)*
+
+## 3. Softverska priprema (*slicing*) i potporne strukture
+### Orijentacija modela u prostoru
+- **0° (horizontalna orijentacija):** najbrži ispis (najmanji broj slojeva) i najveći kapacitet radne ploče, ali velike sile odvajanja sloja od folije (*peeling forces*)
+- **30° – 45° (kosa orijentacija):** **optimalna za krunice, mostove i udlage** jer smanjuje presjek sloja i oslobađa okluzalne fisure od kontaktnih točaka potpora
+- **90° (vertikalna orijentacija):** stane najviše zubnih lukova u spremnik, ali rezultira najduljim vremenom ispisa
+### Visina sloja (*layer height* / Z-rezolucija)
+- Manja visina sloja smanjuje efekt stepenica (*staircase effect*) na zakrivljenim plohama
+- **25 – 50 µm:** krunice, mostovi, precizni radni modeli i utični bataljci
+- **100 µm:** serije ortodontskih modela za termoformiranje udlaga
+### Potporne strukture (*supports*)
+- **Dijelovi potpore:** baza (*raft* — adhezija uz platformu) → stupovi i rešetka (*pillars & bracing*) → kontaktni vrh (*tip*, promjera ⌀ 0,3 – 0,6 mm)
+- **⚠️ Zlatna pravila postavljanja potpora:**
+  - **1. NIKADA** ne postavljati potpore na unutarnju (*intaglio*) površinu krunica, mostova ili kirurških vodilica!
+  - **2. NIKADA** ne postavljati potpore izravno na cervikalnu granicu preparacije (*margin line*)!
+  - **3.** Potpore postavljati na kvržice i vestibularne/oralne plohe izvan okluzalnih kontakata koje je lako ispolirati
+### Puni (*solid*) naspram šupljeg (*hollow*) modela
+- **Puni model (*solid*):** veća potrošnja smole (35 – 50 ml po luku), ali maksimalna dimenzijska stabilnost za protetske modele s bataljcima
+- **Šuplji model (*hollow*):** debljina stijenke 2,0 – 2,5 mm *(ušteda fotopolimerne smole do 60%)*
+- **Efekt vakuumske čašice (*suction cup effect*):** šuplji model **mora** imati drenažne otvore (*drain holes*) blizu radne platforme kako podtlak ne bi izazvao delaminaciju slojeva i deformaciju luka!
+
+## 4. Materijali u aditivnoj dentalnoj tehnici
+### Kemijski sastav i svojstva fotopolimernih smola
+- **Oligomeri i monomeri (70 – 90%):** `UDMA`, `Bis-EMA`, `TEGDMA` *(tvore polimernu mrežu i daju mehanička svojstva)*
+- **Fotoinicijatori (1 – 3%):** `TPO` ili `BAPO` *(apsorbiraju fotone valne duljine 385/405 nm i stvaraju slobodne radikale)*
+- **Anorganska punila (do 50% kod kompozitnih smola):** silikatna ili cirkonijeva staklena mikro- i nano-punila za otpornost na trošenje (*wear resistance*) → **obavezna homogenizacija smole prije ispisa!**
+- **Pigmenti i UV blokatori:** kontroliraju dubinu prodiranja UV zraka i sprječavaju neželjenu polimerizaciju u dubinu (*over-curing*)
+### Zaštita na radu (STL / MSDS)
+- Tekuće nepolimerizirane smole su kontaktni alergeni i iritansi → **obavezno nošenje nitrilnih rukavica** *(lateks rukavice propuštaju metakrilatne monomere!)* uz dobru ventilaciju
+### Klasifikacija smola prema MDR regulativi (EU 2017/745 i ISO 10993)
+- **Izvan MDR regulative (uporaba samo u laboratoriju):**
+  - *Smola za modele i bataljke (Model & Die):* visoka dimenzijska točnost, mat površina bez odbljeska za skeniranje, otpornost na grebanje
+  - *Smola za lijevanje (Castable Wax):* potpuno izgaranje u peći bez ostatka pepela (`0,00% ash residue`) za lijevanje metala ili prešanje `e.max` keramike
+- **MDR klasa I (prolazni kontakt u ustima kraći od 60 minuta):**
+  - *Smola za kirurške vodilice (Surgical Guide):* prozirna biokompatibilna smola, autoklavabilna na 121 °C ili 134 °C bez gubitka dimenzijske točnosti
+- **MDR klasa IIa (kratkotrajni i dugotrajni kontakt dulji od 30 dana):**
+  - *Smola za udlage (Splint & Ortho):* visoka žilavost na lom, otpornost na bruksizam, transparentnost i niska sorpcija vode
+  - *Smola za privremene i trajne krunice (Temporary & Permanent C&B):* hibridne smole punjene keramikom u VITA bojama (A1–D4), visoka savojna čvrstoća (110 – 150 MPa)
+### PEEK polimer i dentalne legure za SLM
+- **PEEK (polietereterketon):** semikristalinični termoplast čiji je Youngov modul elastičnosti (E ≈ 3 – 4 GPa) blizak spužvastoj kosti → ublažava žvačne sile na implantatima (*shock absorption*)
+- **Kobalt-kromova legura (`Co-Cr-Mo/W`):** ne sadrži nikal ni berilij; visoka granica razvlačenja (> 800 MPa) i izvrsna kemijska veza s fasetirnom keramikom
+- **Titanova legura (`Ti6Al4V ELI` — Grade 23):** vrhunska biokompatibilnost i mala masa za implantološke suprastrukture i individualne GBR mrežice
+
+## 5. Kliničke i laboratorijske primjene
+### Izrada radnih modela i utičnih bataljaka (*Geller / dowel dies*)
+- Digitalni dizajn u *Model Builder* softveru s integriranim ležištima za izvadive bataljke + ispis fleksibilne umjetne gingive (*gingiva mask*) oko analoga
+- **Kritični parametar — radijalni razmak (*die spacer / offset*):** u CAD-u se zadaje razmak od **30 – 50 µm** kako bi bataljak ulazio u model glatko, ali bez klimanja (*friction fit*)
+### Kirurške vodilice za implantologiju (*surgical guides*)
+- **Superimpozicija (*matching*):** preklapanje `DICOM` podataka (CBCT snimka kosti i živca) sa `STL` podacima (intraoralni sken zuba i sluznice)
+- **Protetski vođeno planiranje (*backward planning*):** prvo se virtualno postavlja idealna krunica, a prema njoj os ugradnje implantata
+- **Titanska čahura (*metal sleeve*):** utiskuje se u tiskanu vodilicu uz toleranciju ležišta od ≈ 40 – 60 µm
+- **Vrste potpore vodilice:** zubno nošena (*tooth-supported* — najpreciznija) i sluznično nošena (*mucosa-supported* — kod bezubih čeljusti uz fiksacijske pinove)
+### Privremene i trajne krunice i mostovi
+- **Prednosti 3D ispisa u odnosu na glodanje PMMA diskova:**
+  - **Ušteda materijala:** troši se samo ≈ 0,5 ml smole po krunici *(kod glodanja do 70% PMMA diska odlazi u nepovratnu strugotinu)*
+  - **Brzina izrade:** istovremeni ispis 20 krunica na DLP pisaču traje svega **15 – 25 minuta**
+  - **Morfologija:** okluzalne fisure nisu ograničene promjerom glodala (⌀ 0,6 – 1,0 mm)
+- **Završna obrada:** pjeskarenje (50 µm Al₂O₃ pri tlaku od 1,5 bara) → individualizacija kompozitnim bojama i fotopolimerizirajućim lakom (*Optiglaze*) ili poliranje
+### Ortodoncija: termoformiranje naspram izravnog 3D ispisa *alignera*
+- **A) Indirektni put:** 3D ispis serije od 15 – 30 modela zubnog luka → termoformiranje `PETG` ili `PU` folije → ručno/lasersko obrezivanje *(stvara veliki plastični otpad modela)*
+- **B) Izravni 3D ispis (*direct printed aligners*, npr. smola Tera Harz TC-85):**
+  - Izravan 3D ispis same udlage bez modela → **centrifugiranje** viška smole umjesto pranja u alkoholu → UV + N₂ polimerizacija
+  - **Prednosti:** nema otpada modela, programabilna debljina stijenke (npr. 0,5 mm incizalno, 0,7 mm cervikalno) i efekt memorije oblika (*shape memory*) na temperaturi usta (37 °C)
+### Metalne konstrukcije: SLM/LPBF naspram CNC glodanja
+- **Prednosti SLM-a:** iskoristivost metalnog praha > 90%, neograničena geometrijska sloboda (retencijske mrežice proteza, potkopana područja), bez trošenja glodala
+- **Toplinska obrada kod SLM-a:** zbog visokih unutarnjih naprezanja **obavezno je toplinsko žarenje u peći za redukciju naprezanja** *prije* rezanja konstrukcije s radne ploče!
+- **Hibridni pristup (SLM + CNC):** SLM 3D ispis konstrukcije + precizno CNC glodanje dosjednih ploha na implantatima za postizanje pasivnog dosjeda ispod 10 µm
+
+## 6. Post-procesiranje, kontrola kvalitete i rješavanje pogrešaka
+### 1. Protokol pranja i čišćenja
+- **Otapala:** izopropilni alkohol (`IPA ≥ 96%`), etanol ili nehlapljiva otapala (`TPM`)
+- **Dvostupanjsko pranje (*two-bath protocol*):**
+  - *Kupelj 1 (predpranje):* uklanja 90% grube tekuće smole s površine
+  - *Kupelj 2 (čisti IPA):* završno ispiranje bez taloženja otopljenih monomera po rubovima preparacije + sušenje komprimiranim zrakom
+- **⚠️ Opasnost predugog pranja u IPA-i (> 3 – 10 min):** uzrokuje **bubrenje polimernog matriksa (*swelling*)**, stvaranje mikropukotina, pad savojne čvrstoće i gubitak točnosti!
+### 2. Sekundarna UV polimerizacija i uloga dušika (`N₂`)
+- **Zeleno stanje (*green state*):** objekt koji izlazi iz 3D pisača ima stupanj konverzije dvostrukih veza (DC) od svega **50 – 65%**
+- **Parametri UV komore:** odgovarajuća valna duljina (λ = 365 – 405 nm) uz povišenu temperaturu (40 – 80 °C) povećava mobilnost lanaca i podiže konverziju na **DC > 90%**
+- **Inertna atmosfera dušika (`N₂`, npr. uređaj *Otoflash*):**
+  - Atmosferski kisik (`O₂`) veže se na radikale i stvara ljepljivi, nepolimerizirani površinski **inhibicijski sloj kisika**
+  - Polimerizacija u komori s dušikom (`N₂`) eliminira kisik (**DC ≈ 95%**) te osigurava tvrdu, glatku površinu i potpunu biokompatibilnost bez izlučivanja citotoksičnih monomera!
+### 3. Kontrola kvalitete prema normi ISO 5725-1
+- **Točnost (*accuracy*) sastoji se od dvije komponente:**
+  - **Istinitost (*trueness*):** koliko je geometrija ispisanog modela blizu referentnom (originalnom) CAD modelu
+  - **Preciznost / ponovljivost (*precision*):** koliko se međusobno podudaraju više uzastopno ispisanih primjeraka istog modela
+- **Metoda 3D inspekcije (*superimposition*):** ponovno skeniranje ispisanog objekta → *best-fit alignment* s izvornom CAD datotekom (*Geomagic Control X* / *GOM Inspect*) → izračun **RMS (*root mean square*)** odstupanja u mikrometrima putem toplinske mape boja (*color-coded map*)
+### 4. Analiza pogrešaka u 3D ispisu (*troubleshooting*)
+- **Model ne prianja uz radnu ploču (ostaje na dnu spremnika):** nekalibrirana Z-nula ili preniska ekspozicija prvih slojeva → *ponovno kalibrirati Z-os, povećati ekspoziciju prvih slojeva (bottom exposure) za 15 – 20%, odmastiti ploču IPA-om*
+- **Odvajanje slojeva (*delamination*):** preniska temperatura smole (< 20 °C) ili vakuum kod šupljeg modela → *zagrijati smolu na 25 – 30 °C, dodati drenažne otvore uz bazu, smanjiti brzinu podizanja (lift speed)*
+- **Model pada s potpornih struktura:** premali promjer vrha potpore (*tip*) ili zamućena/oštećena FEP folija → *povećati promjer vrha na 0,4 – 0,5 mm i gustoću potpora, zamijeniti foliju spremnika*
+- **Bijele kredaste naslage nakon UV komore:** objekt stavljen u UV komoru prije nego što su IPA i otopljena smola potpuno isparili → *koristiti čistu 2. kupelj IPA-e i temeljito ispuhati objekt komprimiranim zrakom prije UV komore*
+
+## 7. Trendovi razvoja i metodologija rada (IMRAD / APA 7)
+### Smjernice budućeg razvoja u dentalnom laboratoriju
+- **Umjetna inteligencija (AI) u CAD-u:** automatska segmentacija zuba, korijena i mandibularnog kanala iz CBCT-a te generativni dizajn morfologije krunica u nekoliko sekundi
+- **Višematerijalni 3D ispis proteza:** jednovremeni ispis ružičaste baze proteze i višebojnih monolitnih zuba s gradijentom translucencije
+- **4D ispis i pametni polimeri:** ortodontski *aligneri* s memorijom oblika koji kontinuirano doziraju blage biološke sile na temperaturi tijela
+- **Ekološka održivost:** recikliranje izopropilnog alkohola putem destilacijskih jedinica i prijelaz na bio-bazirane smole
+### IMRAD struktura znanstvenog i stručnog rada (*model pješčanog sata*)
+- **I — *Introduction* (uvod):** polazi od širih spoznaja prema specifičnom cilju rada *("Zašto je istraživanje provedeno?")*
+- **M — *Methods* (materijali i metode):** opis skenera, CAD softvera, 3D pisača, vrste smole, visine sloja i post-procesiranja *("Kako je istraživano?")*
+- **R — *Results* (rezultati):** objektivan prikaz izmjerenih podataka, tablica i grafova bez komentiranja *("Što je pronađeno?")*
+- **D — *Discussion* (rasprava i zaključak):** usporedba s postojećom literaturom, ograničenja i kliničke smjernice *("Što to znači za dentalnu praksu?")*
+### APA 7 pravila citiranja i navođenja literature (*sustav autor–godina*)
+- **Rad s 1 autorom:** u zagradi `(Orentlicher, 2012)` ili u tekstu `Orentlicher (2012) navodi...`
+- **Rad s 2 autora:** u zagradi `(Revilla-León i Özcan, 2019)` ili u tekstu `Revilla-León i Özcan (2019)...`
+- **Rad s 3 ili više autora (*zlatno pravilo APA 7 stila*):** već pri **prvom** spominjanju u tekstu navodi se samo prezime prvog autora uz kraticu `"i sur."` ili `"et al."` → `(Gibson i sur., 2021)`, dok se u popisu literature navode svi autori (do 20 autora) uz obvezan DOI link
+</script>
+
+  <script>
+    // Unlock helper
+    function unlockMindmap() {
+      const errorMsg = document.getElementById('login-error');
+      const modal = document.getElementById('login-modal');
+      if (errorMsg) errorMsg.classList.add('hidden');
+      if (modal) {
+        modal.classList.add('opacity-0', 'pointer-events-none');
+        setTimeout(() => {
+          modal.classList.add('hidden');
+          if (mm) mm.fit();
+        }, 200);
+      }
+    }
+
+    // Automatic login as soon as user enters 1111
+    function checkAutoLogin(inputEl) {
+      const errorMsg = document.getElementById('login-error');
+      if (errorMsg) errorMsg.classList.add('hidden');
+      const val = (inputEl ? inputEl.value : '').trim();
+      if (val === '1111') {
+        inputEl.blur();
+        unlockMindmap();
+      }
+    }
+
+    // Manual button submit fallback
+    function handleLogin(event) {
+      if (event) event.preventDefault();
+      const input = document.getElementById('password-input');
+      const errorMsg = document.getElementById('login-error');
+      const val = (input ? input.value : '').trim();
+
+      if (val === '1111') {
+        unlockMindmap();
+      } else {
+        if (errorMsg) errorMsg.classList.remove('hidden');
+        if (input) {
+          input.value = '';
+          input.focus();
+        }
+      }
+    }
+
+    // Initialize Markmap Transformer & View
+    const { Transformer } = window.markmap;
+    const { Markmap, deriveOptions } = window.markmap;
+
+    const transformer = new Transformer();
+    const svgEl = document.getElementById('markmap-svg');
+    let rawMarkdown = document.getElementById('markmap-source').textContent.trim();
+
+    let mm = null;
+    let currentExpandLevel = 1;
+    let isDark = true;
+    let currentFocusChapter = 'all';
+    let currentSearchQuery = '';
+    const learnedNodes = new Set();
+    let totalTrackableNodes = 0;
+
+    // Official Markmap vibrant branch color palette
+    const palette = [
+      '#38bdf8', // Sky Blue (1. Digital Workflow)
+      '#a855f7', // Purple (2. ISO/ASTM Systems)
+      '#f59e0b', // Amber (3. CAM & Slicing)
+      '#10b981', // Emerald (4. Dental Materials)
+      '#ec4899', // Pink (5. Clinical Applications)
+      '#6366f1', // Indigo (6. Post-Processing & QC)
+      '#14b8a6'  // Teal (7. Trends & IMRAD/APA 7)
+    ];
+
+    function stripHtml(html) {
+      const tmp = document.createElement('div');
+      tmp.innerHTML = html || '';
+      return (tmp.textContent || tmp.innerText || '').trim();
+    }
+
+    // Count chapters and subchapters (depth 1 & 2) for Progress Tracker
+    function countTrackable(node, depth = 0) {
+      let count = (depth === 1 || depth === 2) ? 1 : 0;
+      if (node.children) {
+        node.children.forEach(c => { count += countTrackable(c, depth + 1); });
+      }
+      return count;
+    }
+
+    function updateProgressUI() {
+      const pct = totalTrackableNodes > 0
+        ? Math.min(100, Math.round((learnedNodes.size / totalTrackableNodes) * 100))
+        : 0;
+      const el = document.getElementById('progress-text');
+      if (el) el.textContent = `${pct}% (${learnedNodes.size}/${totalTrackableNodes})`;
+    }
+
+    function resetProgress() {
+      learnedNodes.clear();
+      renderMarkmap(rawMarkdown, currentExpandLevel);
+    }
+
+    // Filter or expand tree based on Focus Mode, Search Query & Learned state
+    function processRootTree(root, expandLvl) {
+      // Calculate total trackable nodes from full root before chapter filtering
+      totalTrackableNodes = countTrackable(root, 0);
+      updateProgressUI();
+
+      // 4. Focus Mode: Isolate single chapter if selected
+      if (currentFocusChapter !== 'all' && root.children) {
+        const idx = parseInt(currentFocusChapter, 10);
+        if (!isNaN(idx) && root.children[idx]) {
+          root.children = [root.children[idx]];
+        }
+      }
+
+      const query = currentSearchQuery.trim().toLowerCase();
+
+      function walk(node, depth) {
+        const plain = stripHtml(node.content);
+        const key = `${depth}:${plain}`;
+        const encodedKey = encodeURIComponent(key);
+
+        // 1. Check search match in self or descendants
+        let selfMatches = query.length > 0 && plain.toLowerCase().includes(query);
+        let childMatches = false;
+
+        if (node.children && node.children.length > 0) {
+          node.children.forEach(child => {
+            if (walk(child, depth + 1)) {
+              childMatches = true;
+            }
+          });
+        }
+
+        if (selfMatches) {
+          node.content = `<span class="search-match px-1">${node.content}</span>`;
+        }
+
+        // 3. Interactive Checkbox Button for Chapters (depth 1) & Subchapters (depth 2) — works on Desktop & Mobile!
+        if (depth === 1 || depth === 2) {
+          const isChecked = learnedNodes.has(key);
+          node.content = `<span class="check-btn ${isChecked ? 'is-checked' : ''}" data-key="${encodedKey}" onclick="toggleNodeLearned(event, this)" title="Označi naučenim">✓</span><span class="${isChecked ? 'learned-node' : ''}">${node.content}</span>`;
+        }
+
+        // Control node fold state
+        node.payload = node.payload || {};
+        if (query.length > 0) {
+          // Auto-unfold branches that contain search matches
+          node.payload.fold = (childMatches) ? 0 : (depth >= 1 ? 1 : 0);
+        } else if (currentFocusChapter !== 'all') {
+          // When focusing on a single chapter, open down to depth 3 by default
+          const targetLvl = expandLvl === 1 ? 3 : expandLvl;
+          node.payload.fold = depth >= targetLvl ? 1 : 0;
+        } else {
+          node.payload.fold = depth >= expandLvl ? 1 : 0;
+        }
+
+        return selfMatches || childMatches;
+      }
+
+      walk(root, 0);
+    }
+
+    // Toggle learned state on click/tap without triggering Markmap's node collapse or zooming
+    window.toggleNodeLearned = function(event, btnEl) {
+      event.stopPropagation();
+      event.preventDefault();
+      const encodedKey = btnEl.getAttribute('data-key');
+      if (!encodedKey) return;
+      const key = decodeURIComponent(encodedKey);
+
+      const textSpan = btnEl.nextElementSibling;
+      if (learnedNodes.has(key)) {
+        learnedNodes.delete(key);
+        btnEl.classList.remove('is-checked');
+        if (textSpan) textSpan.classList.remove('learned-node');
+      } else {
+        learnedNodes.add(key);
+        btnEl.classList.add('is-checked');
+        if (textSpan) textSpan.classList.add('learned-node');
+      }
+      updateProgressUI();
+    };
+
+    function renderMarkmap(mdContent, customExpandLevel = null) {
+      const { root, frontmatter } = transformer.transform(mdContent);
+      const fmOptions = deriveOptions(frontmatter?.markmap || {});
+
+      const activeLevel = customExpandLevel !== null ? customExpandLevel : currentExpandLevel;
+      fmOptions.initialExpandLevel = 99; // Handled explicitly via node.payload.fold
+
+      processRootTree(root, activeLevel);
+
+      const options = {
+        ...fmOptions,
+        autoFit: true,
+        duration: 300,
+        paddingX: 24,
+        spacingVertical: 12,
+        spacingHorizontal: 80,
+        color: (node) => {
+          let curr = node;
+          while (curr.depth > 1 && curr.parent) {
+            curr = curr.parent;
+          }
+          if (curr.depth === 0) return '#0284c7';
+          return palette[(curr.state?.id || curr.depth) % palette.length];
+        }
+      };
+
+      if (!mm) {
+        mm = Markmap.create(svgEl, options, root);
+      } else {
+        mm.setOptions(options);
+        mm.setData(root);
+        mm.fit();
+      }
+    }
+
+    // 1. Search Handler
+    function handleSearch(val) {
+      currentSearchQuery = val;
+      const clearBtn = document.getElementById('clear-search-btn');
+      if (clearBtn) {
+        clearBtn.classList.toggle('hidden', val.trim().length === 0);
+      }
+      renderMarkmap(rawMarkdown, currentExpandLevel);
+    }
+
+    function clearSearch() {
+      const input = document.getElementById('search-input');
+      if (input) input.value = '';
+      handleSearch('');
+    }
+
+    // 4. Chapter Focus Handler
+    function handleChapterFocus(chapterVal) {
+      currentFocusChapter = chapterVal;
+      renderMarkmap(rawMarkdown, currentExpandLevel);
+    }
+
+    // Live Markdown Editor Toggle & Sync
+    function toggleEditor() {
+      const panel = document.getElementById('editor-panel');
+      const textarea = document.getElementById('markdown-editor');
+      if (!panel) return;
+
+      const isHidden = panel.classList.contains('hidden');
+      if (isHidden) {
+        textarea.value = rawMarkdown;
+        panel.classList.remove('hidden');
+        panel.classList.add('flex');
+      } else {
+        panel.classList.add('hidden');
+        panel.classList.remove('flex');
+      }
+      setTimeout(() => { if (mm) mm.fit(); }, 150);
+    }
+
+    function handleEditorInput(newMd) {
+      rawMarkdown = newMd;
+      const sourceScript = document.getElementById('markmap-source');
+      if (sourceScript) sourceScript.textContent = newMd;
+      renderMarkmap(rawMarkdown, currentExpandLevel);
+    }
+
+    function setExpandLevel(level, evt) {
+      currentExpandLevel = level;
+      document.querySelectorAll('[onclick^="setExpandLevel"]').forEach(btn => {
+        btn.classList.remove('bg-sky-600', 'text-white', 'font-medium');
+        btn.classList.add('text-slate-200');
+      });
+      if (evt && evt.currentTarget) {
+        evt.currentTarget.classList.add('bg-sky-600', 'text-white', 'font-medium');
+      }
+
+      renderMarkmap(rawMarkdown, level);
+    }
+
+    function fitMap() {
+      if (mm) mm.fit();
+    }
+
+    function toggleTheme() {
+      isDark = !isDark;
+      const body = document.getElementById('app-body');
+      if (isDark) {
+        body.classList.remove('markmap-light');
+        body.classList.add('markmap-dark');
+      } else {
+        body.classList.remove('markmap-dark');
+        body.classList.add('markmap-light');
+      }
+    }
+
+    // Save Standalone Interactive HTML Mindmap (Pure Preview Mode — Editor & Login stripped)
+    function saveHtmlMindmap() {
+      const sourceScript = document.getElementById('markmap-source');
+      if (sourceScript) sourceScript.textContent = rawMarkdown;
+
+      const cloneDoc = document.documentElement.cloneNode(true);
+      const loginModalClone = cloneDoc.querySelector('#login-modal');
+      if (loginModalClone) loginModalClone.remove();
+
+      // Remove Markdown Editor panel and toggle button so exported HTML is strictly preview-only
+      const editorPanelClone = cloneDoc.querySelector('#editor-panel');
+      if (editorPanelClone) editorPanelClone.remove();
+      const editorBtnClone = cloneDoc.querySelector('#editor-toggle-btn');
+      if (editorBtnClone) editorBtnClone.remove();
+
+      const svgClone = cloneDoc.querySelector('#markmap-svg');
+      if (svgClone) svgClone.innerHTML = '';
+
+      const htmlContent = '<!DOCTYPE html>\n' + cloneDoc.outerHTML;
+      const blob = new Blob([htmlContent], { type: 'text/html;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'Aditivne.html';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    }
+
+    // Save Full Unclipped Vector SVG Mindmap (Default name: Aditivne.svg)
+    function saveSvgMindmap() {
+      const gEl = svgEl.querySelector('g');
+      if (!gEl) return;
+
+      // Measure the full bounding box of the mindmap content (untransformed)
+      const bbox = gEl.getBBox();
+      const margin = 48;
+      const fullWidth = Math.ceil(bbox.width + margin * 2);
+      const fullHeight = Math.ceil(bbox.height + margin * 2);
+      const minX = Math.floor(bbox.x - margin);
+      const minY = Math.floor(bbox.y - margin);
+
+      // Clone the SVG and set exact viewBox and inline styles so nothing is cropped
+      const clonedSvg = svgEl.cloneNode(true);
+      clonedSvg.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+      clonedSvg.setAttribute('width', fullWidth);
+      clonedSvg.setAttribute('height', fullHeight);
+      clonedSvg.setAttribute('viewBox', `${minX} ${minY} ${fullWidth} ${fullHeight}`);
+      clonedSvg.style.backgroundColor = isDark ? '#0f172a' : '#f8fafc';
+
+      const clonedG = clonedSvg.querySelector('g');
+      if (clonedG) {
+        clonedG.setAttribute('transform', 'translate(0,0) scale(1)');
+      }
+
+      // Embed CSS rules directly inside the exported SVG so fonts and labels render cleanly
+      const styleEl = document.createElementNS('http://www.w3.org/2000/svg', 'style');
+      const textColor = isDark ? '#f1f5f9' : '#1e293b';
+      const codeBg = isDark ? '#1e293b' : '#e2e8f0';
+      const codeColor = isDark ? '#38bdf8' : '#0369a1';
+      styleEl.textContent = `
+        svg { font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; }
+        foreignObject { overflow: visible !important; }
+        .markmap-foreign {
+          display: inline-block;
+          text-align: left !important;
+          color: ${textColor};
+          font-size: 14px;
+          line-height: 1.45;
+          padding: 2px 18px 2px 4px;
+          white-space: nowrap;
+        }
+        .markmap-foreign code {
+          font-family: monospace;
+          font-size: 0.88em;
+          padding: 1px 5px;
+          border-radius: 4px;
+          background-color: ${codeBg};
+          color: ${codeColor};
+        }
+        .markmap-foreign strong { font-weight: 600; }
+      `;
+      clonedSvg.insertBefore(styleEl, clonedSvg.firstChild);
+
+      const svgData = new XMLSerializer().serializeToString(clonedSvg);
+      const blob = new Blob([svgData], { type: 'image/svg+xml;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'Aditivne.svg';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    }
+
+    // Initial render after fonts load to prevent Markmap from miscalculating label widths
+    window.addEventListener('DOMContentLoaded', () => {
+      if (document.fonts && document.fonts.ready) {
+        document.fonts.ready.then(() => {
+          renderMarkmap(rawMarkdown, currentExpandLevel);
+        });
+      } else {
+        renderMarkmap(rawMarkdown, currentExpandLevel);
+      }
+    });
+
+    window.addEventListener('resize', () => {
+      if (mm) mm.fit();
+    });
+  </script>
+</body>
+</html>
